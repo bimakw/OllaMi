@@ -2,6 +2,7 @@
 
 **OllaMi (Ollama + Gemini)** is your personal, locally-running AI coding companion. It leverages a powerful 4-agent synthesis model, powered by Ollama and Gemini, to provide comprehensive coding solutions, analysis, and now... **visual understanding!**
 
+
 ![OllaMi Demo](httpsimg.shields.io/badge/Python-3.10+-blue?logo=python)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status](https://img.shields.io/badge/Status-In%20Development-orange)

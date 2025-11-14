@@ -52,7 +52,25 @@ OllaMi relies on the Ollama service running in the background for its offline mo
 Open your terminal and run this command to download the default local model:
 
 ```bash
-# Pull the fast, high-quality text model for coding
-ollama pull llama3:8b-instruct-q4_K_M ( or other model you can cange it at OLLAMA_MODEL = "llama3:8b-instruct-q4_K_M" ( ollama_client.py ))
+For Ollama model ( Offline )
+# Pull the fast, high-quality text model for coding 
+ollama pull llama3:8b-instruct-q4_K_M  # ( or other model you can cange it at OLLAMA_MODEL = "llama3:8b-instruct-q4_K_M" ( ollama_client.py ))
+
+For Gemini ( Online )
+You can make .env with text GOOGLE_API_KEY="YOUR_API_KEY_HERE" <<<<< cange to your own API
 
 Clone & Install OllaMi
+# 1. Clone this repository
+git clone [https://github.com/YOUR_USERNAME/OllaMi.git](https://github.com/YOUR_USERNAME/OllaMi.git)
+
+# 2. Navigate to the project directory
+cd OllaMi
+
+# 3. (Recommended) Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+
+# 4. Install the required Python packages
+pip install -r requirements.txt
+
+

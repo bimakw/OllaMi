@@ -2,10 +2,11 @@
 
 **OllaMi (Ollama + Gemini)** is your personal, locally-running AI coding companion. It leverages a powerful 4-agent synthesis model, powered by Ollama and Gemini, to provide comprehensive coding solutions and analysis.
 
-![OllaMi application screenshot](httpsimg.shields.io/badge/Python-3.10+-blue?logo=python)
+
+
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
-
+![Version](https://img.shields.io/badge/Version-v0.1.0-blue)
 ---
 
 ### 📍 Overview
@@ -61,7 +62,7 @@ You can make .env with text GOOGLE_API_KEY="YOUR_API_KEY_HERE" <<<<< cange to yo
 
 Clone & Install OllaMi
 # 1. Clone this repository
-git clone [https://github.com/YOUR_USERNAME/OllaMi.git](https://github.com/YOUR_USERNAME/OllaMi.git)
+git clone [https://github.com/Jov1114/OllaMi.git](https://github.com/YOUR_USERNAME/OllaMi.git)
 
 # 2. Navigate to the project directory
 cd OllaMi

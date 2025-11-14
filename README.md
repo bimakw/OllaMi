@@ -48,21 +48,13 @@ OllaMi relies on the Ollama service running in the background for its offline mo
 1.  Go to **[ollama.com](https://ollama.com/)** and download the application for your OS (macOS, Windows, or Linux).
 2.  Install it and ensure the Ollama service is running.
 
-### 2. Pull the Required AI Model (Ollama)
+### 2. Clone & Install OllaMi
 
-Open your terminal and run this command to download the default local model:
+Next, clone the project repository and install its dependencies.
 
 ```bash
-For Ollama model ( Offline )
-# Pull the fast, high-quality text model for coding 
-ollama pull llama3:8b-instruct-q4_K_M  # ( or other model you can cange it at OLLAMA_MODEL = "llama3:8b-instruct-q4_K_M" ( ollama_client.py ))
-
-For Gemini ( Online )
-You can make .env with text GOOGLE_API_KEY="YOUR_API_KEY_HERE" <<<<< cange to your own API
-
-Clone & Install OllaMi
 # 1. Clone this repository
-git clone [https://github.com/Jov1114/OllaMi.git](https://github.com/YOUR_USERNAME/OllaMi.git)
+git clone https://github.com/Jov1114/OllaMi.git
 
 # 2. Navigate to the project directory
 cd OllaMi
@@ -73,5 +65,47 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 
 # 4. Install the required Python packages
 pip install -r requirements.txt
+
+```
+
+### 3. Configure Your AI Models
+This final step configures the "brains" of the operation.
+
+
+A. For Offline Mode (Ollama)
+Open your terminal and run this command to download the default local model:
+
+```bash
+ollama pull llama3:8b-instruct-q4_K_M
+```
+(Note: You can change this default model later in the ollama_client.py file)
+
+
+B. For Online Mode (Gemini)
+To enable the "Online Mode", OllaMi needs your Google AI API key.
+
+ 1. Get your free API key from Google AI Studio.
+
+ 2. In the OllaMi project folder (where you just ran pip install), create a new file named .env
+
+ 3. Open the .env file and add your API key exactly like this:
+ ```bash
+GOOGLE_API_KEY="YOUR_API_KEY_HERE"
+```
+
+### 4. Running the Application
+
+You're all set!
+
+Make sure your Ollama application is running (for offline mode).
+
+In your terminal (from the OllaMi directory), run the Streamlit app:
+
+
+```bash
+streamlit run app.py
+```
+
+
 
 

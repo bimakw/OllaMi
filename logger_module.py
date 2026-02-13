@@ -1,5 +1,8 @@
 import datetime
+import threading
+
 LOG_HISTORY = ""
+_log_lock = threading.Lock()
 
 def log_message(prompt, response, ai_type):
     global LOG_HISTORY
@@ -23,7 +26,8 @@ def log_message(prompt, response, ai_type):
         f"---------------------------------------------------\n"
     )
     
-    LOG_HISTORY = log_entry + LOG_HISTORY
+    with _log_lock:
+        LOG_HISTORY = log_entry + LOG_HISTORY
 
 def get_logs():
     global LOG_HISTORY

@@ -1,6 +1,7 @@
 import requests
 import json
 import concurrent.futures
+import os
 
 from logger_module import log_message
 from ai_prompts import (
@@ -10,8 +11,8 @@ from ai_prompts import (
     PROMPT_FINAL_MAP,
 )
 
-OLLAMA_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3:8b-instruct-q4_K_M"
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:8b-instruct-q4_K_M")
 
 
 def generate_ollama_content(

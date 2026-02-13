@@ -10,7 +10,8 @@ from ai_prompts import PROMPT_MAP, PROMPT_SUPER_MAP, PROMPT_GENERAL_MAP, PROMPT_
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 
-GEMINI_API_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-preview-09-2025")
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, history=None):
     """
@@ -20,10 +21,9 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
     if not GEMINI_API_KEY:
         return "ERROR: Environment variable 'GEMINI_API_KEY' tidak ditemukan. Harap atur environment variable Anda."
 
-    api_url = f"{GEMINI_API_URL_BASE}?key={GEMINI_API_KEY}"
-    
     headers = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
     }
 
     contents = []
@@ -40,11 +40,11 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
             "temperature": temperature,
             "maxOutputTokens": 8192,
         },
-        "safetySettings": [ 
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
         ]
     }
 
@@ -57,8 +57,11 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
     delay = 1
     for attempt in range(max_retries):
         try:
-            response = requests.post(api_url, headers=headers, json=payload, timeout=180)
-            
+            response = requests.post(GEMINI_API_URL, headers=headers, json=payload, timeout=180)
+
+            if response.status_code == 400 and "API_KEY_INVALID" in response.text:
+                return "ERROR: API Key Gemini yang Anda masukkan tidak valid. Silakan periksa kembali."
+
             if response.status_code == 429 or response.status_code >= 500:
                 log_message(prompt, f"Gemini API attempt {attempt+1} failed with status {response.status_code}. Retrying in {delay}s...", ai_type)
                 time.sleep(delay)
@@ -74,8 +77,6 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
                 finish_reason = result.get('candidates', [{}])[0].get('finishReason', 'UNKNOWN')
                 if finish_reason == 'SAFETY':
                     return f"ERROR: Respons Gemini diblokir karena alasan keamanan (SAFETY)."
-                if response.status_code == 400 and "API_KEY_INVALID" in response.text:
-                     return "ERROR: API Key Gemini yang Anda masukkan tidak valid. Silakan periksa kembali."
                 return f"ERROR: Respons tidak valid dari Gemini API untuk {ai_type}. Detail: {result}"
 
         except requests.exceptions.RequestException as e:

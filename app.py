@@ -122,7 +122,7 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("💡 Konfigurasi AI")
     
-    is_focus_needed = st.session_state.config["mode"] in [" nặng Gabungan Penuh (4 AI)", "Keputusan Akhir (Final)"]
+    is_focus_needed = st.session_state.config["mode"] in [" Gabungan Penuh (4 AI)", "Keputusan Akhir (Final)"]
     
     if is_focus_needed:
         focus_options = ["Kode Baru", "Refactoring Kode", "Debug", "Analisis Konsep"]

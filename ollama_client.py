@@ -17,24 +17,26 @@ def generate_ollama_content(prompt, system_prompt, ai_type, temperature=0.3, his
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
-        for role, msg in history:
-            r = "user" if role == "user" else "assistant"
-            if msg:
-                messages.append({"role": r, "content": str(msg)})
+        for role, message in history:
+            ollama_role = "user" if role == "user" else "assistant"
+            message_text = str(message) if message is not None else ""
+            if message_text:
+                messages.append({"role": ollama_role, "content": message_text})
 
-    messages.append({"role": "user", "content": prompt})
+    prompt_text = str(prompt) if prompt is not None else ""
+    messages.append({"role": "user", "content": prompt_text})
 
     payload = {
         "model": OLLAMA_MODEL,
         "messages": messages,
-        "options": {"temperature": temperature, "num_predict": 2048},
+        "options": {"temperature": temperature, "num_predict": 1024},
         "stream": False,
     }
 
     # retry sederhana -- ollama lokal kadang timeout kalau model baru di-load
     for attempt in range(3):
         try:
-            resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=150)
+            resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=120)
             resp.raise_for_status()
             data = resp.json()
 

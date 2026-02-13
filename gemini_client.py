@@ -7,11 +7,14 @@ from logger_module import log_message
 from ai_prompts import PROMPT_MAP, PROMPT_SUPER_MAP, PROMPT_GENERAL_MAP, PROMPT_FINAL_MAP
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-preview-09-2025")
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 
 def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, history=None):
+    """
+    Memanggil Google Gemini API untuk menghasilkan konten.
+    """
     if not GEMINI_API_KEY:
         return "ERROR: GEMINI_API_KEY belum di-set di environment."
 
@@ -31,7 +34,7 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
         "contents": contents,
         "generationConfig": {
             "temperature": temperature,
-            "maxOutputTokens": 6144,
+            "maxOutputTokens": 8192,
         },
         "safetySettings": [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
@@ -44,16 +47,16 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
     if system_prompt:
         payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
 
-    retries = 4
-    wait = 1
-    for attempt in range(retries):
+    max_retries = 5
+    delay = 1
+    for attempt in range(max_retries):
         try:
-            resp = requests.post(GEMINI_API_URL, headers=headers, json=payload, timeout=150)
+            resp = requests.post(GEMINI_API_URL, headers=headers, json=payload, timeout=180)
 
             if resp.status_code == 429 or resp.status_code >= 500:
-                log_message(prompt, f"Gemini attempt {attempt+1} gagal (HTTP {resp.status_code}), retry {wait}s...", ai_type)
-                time.sleep(wait)
-                wait *= 2
+                log_message(prompt, f"Gemini attempt {attempt+1} gagal (HTTP {resp.status_code}), retry {delay}s...", ai_type)
+                time.sleep(delay)
+                delay *= 2
                 continue
 
             resp.raise_for_status()
@@ -63,6 +66,10 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
             if candidates and candidates[0].get("content", {}).get("parts"):
                 return candidates[0]["content"]["parts"][0]["text"]
 
+            # cek apakah API key invalid
+            if resp.status_code == 400 and "API_KEY_INVALID" in resp.text:
+                return "ERROR: API Key Gemini yang Anda masukkan tidak valid. Silakan periksa kembali."
+
             finish = candidates[0].get("finishReason", "UNKNOWN") if candidates else "NO_CANDIDATES"
             if finish == "SAFETY":
                 return "ERROR: Respons diblokir oleh safety filter Gemini."
@@ -70,32 +77,32 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
 
         except requests.exceptions.RequestException as e:
             log_message(prompt, f"ERROR Gemini attempt {attempt+1}: {e}", ai_type)
-            if attempt == retries - 1:
-                return f"ERROR: Gagal memanggil Gemini setelah {retries}x: {e}"
-            time.sleep(wait)
-            wait *= 2
+            if attempt == max_retries - 1:
+                return f"ERROR: Gagal memanggil Gemini setelah {max_retries}x: {e}"
+            time.sleep(delay)
+            delay *= 2
         except Exception as e:
             return f"ERROR: Unexpected error di generate_gemini_content: {e}"
 
-    return f"ERROR: Gemini API gagal setelah {retries} percobaan."
-
-
-def _resolve_system_prompt(ai_type, focus):
-    if ai_type in PROMPT_MAP:
-        return PROMPT_MAP[ai_type]
-    if ai_type in PROMPT_SUPER_MAP:
-        return PROMPT_SUPER_MAP[ai_type]
-    if ai_type in PROMPT_GENERAL_MAP:
-        return PROMPT_GENERAL_MAP[ai_type]
-    if ai_type == "Keputusan Akhir (Final)":
-        tpl = PROMPT_FINAL_MAP["Analisis Konsep"] if focus == "Analisis Konsep" else PROMPT_FINAL_MAP["Koding"]
-        return tpl.format(focus=focus)
-    return None
+    return f"ERROR: Gemini API gagal setelah {max_retries} percobaan."
 
 
 def get_single_ai_response(prompt, ai_type, focus="Kode Baru", temp=0.7, history=None):
-    sys_prompt = _resolve_system_prompt(ai_type, focus)
-    if sys_prompt is None:
+    """
+    Mendapatkan respons dari satu jenis AI tertentu (Gemini).
+    """
+    sys_prompt = ""
+
+    if ai_type in PROMPT_MAP:
+        sys_prompt = PROMPT_MAP[ai_type]
+    elif ai_type in PROMPT_SUPER_MAP:
+        sys_prompt = PROMPT_SUPER_MAP[ai_type]
+    elif ai_type in PROMPT_GENERAL_MAP:
+        sys_prompt = PROMPT_GENERAL_MAP[ai_type]
+    elif ai_type == "Keputusan Akhir (Final)":
+        tpl = PROMPT_FINAL_MAP["Analisis Konsep"] if focus == "Analisis Konsep" else PROMPT_FINAL_MAP["Koding"]
+        sys_prompt = tpl.format(focus=focus)
+    else:
         err = f"Tipe AI '{ai_type}' tidak dikenali."
         log_message(prompt, err, ai_type)
         return err
@@ -113,6 +120,9 @@ def get_single_ai_response(prompt, ai_type, focus="Kode Baru", temp=0.7, history
 
 
 def get_combined_ai_response(original_prompt, focus="Kode Baru", temp=0.7, history=None):
+    """
+    Menggabungkan respons dari empat jenis AI (Gemini).
+    """
     results = {}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:

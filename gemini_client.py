@@ -68,8 +68,9 @@ def generate_gemini_content(prompt, system_prompt, ai_type, temperature=0.3, his
             response.raise_for_status()
             result = response.json()
             
-            if 'candidates' in result and result['candidates'][0]['content']['parts'][0]['text']:
-                return result['candidates'][0]['content']['parts'][0]['text']
+            candidates = result.get('candidates', [])
+            if candidates and candidates[0].get('content', {}).get('parts'):
+                return candidates[0]['content']['parts'][0]['text']
             else:
                 finish_reason = result.get('candidates', [{}])[0].get('finishReason', 'UNKNOWN')
                 if finish_reason == 'SAFETY':

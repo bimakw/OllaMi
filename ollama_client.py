@@ -11,6 +11,9 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3:8b-instruct-q4_K_M")
 
 
 def generate_ollama_content(prompt, system_prompt, ai_type, temperature=0.3, history=None):
+    """
+    Memanggil Ollama API lokal untuk menghasilkan konten.
+    """
     messages = []
 
     if system_prompt:
@@ -29,21 +32,26 @@ def generate_ollama_content(prompt, system_prompt, ai_type, temperature=0.3, his
     payload = {
         "model": OLLAMA_MODEL,
         "messages": messages,
-        "options": {"temperature": temperature, "num_predict": 1024},
+        "options": {
+            "temperature": temperature,
+            "num_predict": 1024
+        },
         "stream": False,
     }
 
     # retry sederhana -- ollama lokal kadang timeout kalau model baru di-load
     for attempt in range(3):
         try:
-            resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=120)
-            resp.raise_for_status()
-            data = resp.json()
+            response = requests.post(
+                f"{OLLAMA_URL}/api/chat", json=payload, timeout=120
+            )
+            response.raise_for_status()
+            result = response.json()
 
-            if "message" in data and data["message"].get("content"):
-                return data["message"]["content"]
+            if "message" in result and result["message"].get("content"):
+                return result["message"]["content"]
 
-            return f"ERROR: Respons Ollama tidak valid untuk {ai_type}. Detail: {data}"
+            return f"ERROR: Respons tidak valid dari Ollama API untuk {ai_type}. Detail: {result}"
 
         except requests.exceptions.ConnectionError:
             return f"ERROR: Tidak bisa konek ke Ollama ({OLLAMA_URL}). Pastikan Ollama sudah jalan."
@@ -54,76 +62,99 @@ def generate_ollama_content(prompt, system_prompt, ai_type, temperature=0.3, his
                 continue
             return f"ERROR: Ollama timeout setelah 3x percobaan."
         except requests.exceptions.RequestException as e:
-            err = f"ERROR memanggil Ollama untuk {ai_type}: {e}"
-            log_message(prompt, err, ai_type)
-            return err
+            error_msg = f"ERROR saat memanggil Ollama API ({OLLAMA_URL}) untuk {ai_type}: {e}"
+            log_message(prompt, error_msg, ai_type)
+            return error_msg
         except Exception as e:
-            return f"ERROR tak terduga: {e}"
+            error_msg = f"ERROR tak terduga dalam generate_ollama_content: {e}"
+            log_message(prompt, error_msg, ai_type)
+            return error_msg
 
     return f"ERROR: Ollama gagal untuk {ai_type}."
 
 
 def get_single_ai_response(prompt, ai_type, focus="Kode Baru", temp=0.7, history=None):
-    sys_prompt = ""
+    """
+    Mendapatkan respons dari satu jenis AI tertentu (Ollama).
+    """
+    system_prompt = ""
 
     if ai_type in PROMPT_MAP:
-        sys_prompt = PROMPT_MAP[ai_type]
+        system_prompt = PROMPT_MAP[ai_type]
     elif ai_type in PROMPT_SUPER_MAP:
-        sys_prompt = PROMPT_SUPER_MAP[ai_type]
+        system_prompt = PROMPT_SUPER_MAP[ai_type]
     elif ai_type in PROMPT_GENERAL_MAP:
-        sys_prompt = PROMPT_GENERAL_MAP[ai_type]
+        system_prompt = PROMPT_GENERAL_MAP[ai_type]
     elif ai_type == "Keputusan Akhir (Final)":
-        tpl = PROMPT_FINAL_MAP["Analisis Konsep"] if focus == "Analisis Konsep" else PROMPT_FINAL_MAP["Koding"]
-        sys_prompt = tpl.format(focus=focus)
+        if focus == "Analisis Konsep":
+            system_prompt = PROMPT_FINAL_MAP["Analisis Konsep"].format(focus=focus)
+        else:
+            system_prompt = PROMPT_FINAL_MAP["Koding"].format(focus=focus)
     else:
-        err = f"Tipe AI '{ai_type}' tidak dikenali."
-        log_message(prompt, err, ai_type)
-        return err
+        error_msg = f"Tipe AI '{ai_type}' tidak dikenali."
+        log_message(prompt, error_msg, ai_type)
+        return error_msg
 
-    text = generate_ollama_content(prompt, sys_prompt, ai_type, temperature=temp, history=history)
+    ai_response_text = generate_ollama_content(
+        prompt, system_prompt, ai_type, temperature=temp, history=history
+    )
 
+    title_header = "Respon AI Tunggal"
     if ai_type == "General":
-        header = "Respon AI General"
+        title_header = "Respon AI General"
     elif ai_type in PROMPT_SUPER_MAP:
-        header = "Respon AI Koding Cepat"
-    else:
-        header = "Respon AI Tunggal"
+        title_header = "Respon AI Koding Cepat"
 
-    return f"## 👑 {header} (Ollama: {ai_type})\n\n{text}"
+    return f"## 👑 {title_header} (Ollama: {ai_type})\n\n{ai_response_text}"
 
 
 def get_combined_ai_response(original_prompt, focus="Kode Baru", temp=0.7, history=None):
+    """
+    Menggabungkan respons dari empat jenis AI (Ollama).
+    """
     results = {}
-    ai_keys = list(PROMPT_MAP.keys())
+    coding_ai_keys = list(PROMPT_MAP.keys())
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(ai_keys)) as pool:
-        futures = {
-            pool.submit(generate_ollama_content, original_prompt, PROMPT_MAP[k], k, temp): k
-            for k in ai_keys
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(coding_ai_keys)) as executor:
+        future_to_ai = {
+            executor.submit(
+                generate_ollama_content, original_prompt,
+                PROMPT_MAP[ai_type], ai_type, temp
+            ): ai_type
+            for ai_type in coding_ai_keys
         }
-        for f in concurrent.futures.as_completed(futures):
-            k = futures[f]
+        for future in concurrent.futures.as_completed(future_to_ai):
+            ai_type = future_to_ai[future]
             try:
-                results[k] = f.result()
+                results[ai_type] = future.result()
             except Exception as e:
-                err = f"ERROR paralel {k} (Ollama): {e}"
-                log_message(original_prompt, err, k)
-                results[k] = err
+                error_msg = f"ERROR saat menjalankan {ai_type} (Ollama) secara paralel: {e}"
+                log_message(original_prompt, error_msg, ai_type)
+                results[ai_type] = error_msg
 
-    combined = f"## Data Input Awal (Fokus: {focus}):\n{original_prompt}\n\n## Hasil Analisis 3 AI:\n"
-    for k in ai_keys:
-        combined += f"### {k}\n{results.get(k, 'ERROR: tidak ada hasil')}\n---\n"
+    intermediate_output = f"## Data Input Awal (Fokus: {focus}):\n{original_prompt}\n\n"
+    intermediate_output += "## Hasil Analisis 3 AI:\n"
+    for ai_type in coding_ai_keys:
+        result_text = results.get(ai_type, "ERROR: Hasil tidak ditemukan.")
+        intermediate_output += f"### {ai_type}\n{result_text}\n---\n"
 
-    tpl = PROMPT_FINAL_MAP["Analisis Konsep"] if focus == "Analisis Konsep" else PROMPT_FINAL_MAP["Koding"]
-    final_text = generate_ollama_content(
-        combined, tpl.format(focus=focus),
-        "Keputusan Akhir (Final)", temperature=0.3, history=history,
+    ai_final_type = "Keputusan Akhir (Final)"
+    if focus == "Analisis Konsep":
+        system_prompt_decision = PROMPT_FINAL_MAP["Analisis Konsep"].format(focus=focus)
+    else:
+        system_prompt_decision = PROMPT_FINAL_MAP["Koding"].format(focus=focus)
+
+    final_decision_text = generate_ollama_content(
+        intermediate_output, system_prompt_decision,
+        ai_final_type, temperature=0.3, history=history
     )
 
-    output = f"## 👑 Keputusan Akhir (Ollama: AI Ke-4)\n\n{final_text}"
-    output += "\n\n***\n\n## 📋 Rincian Analisis (3 AI Awal)\n"
-    for k in ai_keys:
-        output += f"### {k}\n{results.get(k, 'ERROR: tidak ada hasil')}\n\n---\n"
+    final_output = f"## 👑 Keputusan Akhir (Ollama: {ai_final_type})\n\n"
+    final_output += final_decision_text
+    final_output += "\n\n***\n\n## 📋 Rincian Analisis (3 AI Awal)\n"
+    for ai_type in coding_ai_keys:
+        result_text = results.get(ai_type, "ERROR: Hasil tidak ditemukan.")
+        final_output += f"### {ai_type}\n{result_text}\n\n---\n"
 
-    log_message(original_prompt, output, "OLLAMA_COMBINED_4_AI")
-    return output
+    log_message(original_prompt, final_output, "OLLAMA_COMBINED_4_AI")
+    return final_output

@@ -4,12 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY_DARI_ENV = os.environ.get("GEMINI_API_KEY")
-
-
 from ollama_client import get_combined_ai_response as ollama_combined, get_single_ai_response as ollama_single
 from gemini_client import get_combined_ai_response as gemini_combined, get_single_ai_response as gemini_single
-from logger_module import get_logs 
+from logger_module import get_logs
 
 
 st.set_page_config(layout="wide")
@@ -30,10 +27,6 @@ if "task_type" not in st.session_state:
 
 
 def display_combined_ai_response(response_text):
-    """
-    Fungsi untuk menampilkan respon AI gabungan atau tunggal secara terstruktur.
-    (Fungsi ini tidak perlu diubah, sudah fleksibel)
-    """
     separator = "\n\n***\n\n## 📋 Rincian Analisis (3 AI Awal)\n"
 
     if "## 👑 Respon AI" in response_text and separator not in response_text:
@@ -46,7 +39,7 @@ def display_combined_ai_response(response_text):
         main_decision_part, detailed_analysis_part = response_text.split(separator, 1)
         main_decision_content = main_decision_part.split("\n\n", 1)[-1]
 
-        st.info(main_decision_content) 
+        st.info(main_decision_content)
 
         if detailed_analysis_part:
             with st.expander("🔍 Bandingkan Analisis Mendalam (Output Mentah 3 AI)"):
@@ -60,12 +53,12 @@ def clear_chat_history():
 
 with st.sidebar:
     st.header("🛠️ Pengaturan & Kontrol")
-    
+
     st.subheader("⚙️ Kontrol Aplikasi")
     st.button("🧹 Clear Semua Chat", on_click=clear_chat_history, type="primary", use_container_width=True)
 
     st.markdown("---")
-    
+
     st.subheader("🤖 Pilih Provider AI")
     st.session_state.config["ai_provider"] = st.radio(
         "Pilih AI:",
@@ -78,39 +71,39 @@ with st.sidebar:
 
     st.subheader("🤖 Pilih Tipe Tugas")
     default_index = 0 if st.session_state.task_type == "💬 Chat General" else 1
-    
+
     task_type = st.radio(
         "Pilih fokus utama:",
         ["💬 Chat General", "💻 Koding & Analisis Kode"],
         key="task_type",
         index=default_index
     )
-    
+
     st.markdown("---")
 
     if task_type == "💻 Koding & Analisis Kode":
         st.subheader("🤖 Pilih Mode Koding")
-        
+
         mode_options = [
             "⚡ Koding Cepat (1 AI)",
-            " Gabungan Penuh (4 AI)",
-            "Keputusan Akhir (Final)",          
-            "Saran 1: Review",                  
-            "Saran 2: Linter",                  
-            "Saran 3: Generator"                
+            "Gabungan Penuh (4 AI)",
+            "Keputusan Akhir (Final)",
+            "Saran 1: Review",
+            "Saran 2: Linter",
+            "Saran 3: Generator"
         ]
-        
+
         if st.session_state.config["mode"] == "General":
             st.session_state.config["mode"] = "⚡ Koding Cepat (1 AI)"
-        
+
         try:
             current_mode_index = mode_options.index(st.session_state.config["mode"])
         except ValueError:
-            current_mode_index = 0 
+            current_mode_index = 0
             st.session_state.config["mode"] = "⚡ Koding Cepat (1 AI)"
 
         st.session_state.config["mode"] = st.selectbox(
-            "Mode Respon Koding:", 
+            "Mode Respon Koding:",
             options=mode_options,
             index=current_mode_index
         )
@@ -118,31 +111,32 @@ with st.sidebar:
         st.session_state.config["mode"] = "General"
         st.info("Anda sedang dalam mode Chat General. Tanyakan apa saja!")
 
-    
+
     st.markdown("---")
     st.subheader("💡 Konfigurasi AI")
-    
-    is_focus_needed = st.session_state.config["mode"] in [" nặng Gabungan Penuh (4 AI)", "Keputusan Akhir (Final)"]
-    
-    if is_focus_needed:
+
+    # fokus cuma ditampilin kalau mode gabungan atau final
+    needs_focus = st.session_state.config["mode"] in ["Gabungan Penuh (4 AI)", "Keputusan Akhir (Final)"]
+
+    if needs_focus:
         focus_options = ["Kode Baru", "Refactoring Kode", "Debug", "Analisis Konsep"]
         try:
             current_focus_index = focus_options.index(st.session_state.config["focus"])
         except ValueError:
             current_focus_index = 0
         st.session_state.config["focus"] = st.selectbox(
-            "Fokus Output AI Koding:", 
+            "Fokus Output AI Koding:",
             options=focus_options,
             index=current_focus_index
         )
-    
+
     st.session_state.config["temperature"] = st.slider(
-        "Kreativitas (Temperature):", 
-        min_value=0.0, max_value=1.0, 
-        value=st.session_state.config["temperature"], 
+        "Kreativitas (Temperature):",
+        min_value=0.0, max_value=1.0,
+        value=st.session_state.config["temperature"],
         step=0.1
     )
-    
+
     st.markdown("---")
 
     st.subheader("📜 Riwayat Log")
@@ -169,15 +163,14 @@ if prompt := st.chat_input("Tanyakan apa saja, atau masukkan kode Anda..."):
     st.session_state.messages.append(("user", prompt))
     st.chat_message("user").write(prompt)
 
-
     selected_provider = st.session_state.config["ai_provider"]
     selected_mode = st.session_state.config["mode"]
-    selected_focus = st.session_state.config.get("focus", "Kode Baru") 
-    selected_temp = st.session_state.config.get("temperature", 0.7)    
-    current_history = st.session_state.messages[:-1] 
-    prompt_only = st.session_state.messages[-1][1] 
+    selected_focus = st.session_state.config.get("focus", "Kode Baru")
+    selected_temp = st.session_state.config.get("temperature", 0.7)
+    current_history = st.session_state.messages[:-1]
+    prompt_only = st.session_state.messages[-1][1]
 
-    response = "" 
+    response = ""
 
     with st.status(f"Memproses '{selected_mode}' via '{selected_provider}'...", expanded=True) as status:
 
@@ -187,42 +180,40 @@ if prompt := st.chat_input("Tanyakan apa saja, atau masukkan kode Anda..."):
         else:
             func_single = gemini_single
             func_combined = gemini_combined
-        
-       
+
         if selected_mode == "⚡ Koding Cepat (1 AI)":
             st.write(f"Memanggil AI Koding Cepat via {selected_provider}...")
             response = func_single(
-                prompt_only, 
+                prompt_only,
                 ai_type="Koding Cepat (1 AI)",
-                focus=selected_focus, 
+                focus=selected_focus,
                 temp=selected_temp,
-                history=current_history 
+                history=current_history
             )
 
         elif "Gabungan Penuh" in selected_mode:
             st.write(f"Memanggil 4 AI Gabungan via {selected_provider}...")
             response = func_combined(
-                prompt_only, 
-                focus=selected_focus, 
+                prompt_only,
+                focus=selected_focus,
                 temp=selected_temp,
-                history=current_history 
+                history=current_history
             )
 
-        else: 
-            
-            ai_type = selected_mode 
+        else:
+            ai_type = selected_mode
             st.write(f"Memanggil AI Tunggal ({ai_type}) via {selected_provider}...")
-            
-            ai_type_key = "Keputusan Akhir (Final)" if "Keputusan Akhir" in selected_mode else ai_type 
+
+            ai_type_key = "Keputusan Akhir (Final)" if "Keputusan Akhir" in selected_mode else ai_type
 
             response = func_single(
-                prompt_only, 
-                ai_type=ai_type_key, 
-                focus=selected_focus, 
+                prompt_only,
+                ai_type=ai_type_key,
+                focus=selected_focus,
                 temp=selected_temp,
-                history=current_history 
+                history=current_history
             )
-            
+
         status.update(label=f"✅ Selesai! Respon dari {selected_provider} berhasil dibuat.", state="complete", expanded=False)
 
 
